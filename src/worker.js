@@ -46,7 +46,7 @@ export default {
     if (req.method === 'GET' || req.method === 'HEAD') {
       if (path === '/api/setup') return pretty(await setup(env));
       if (path === '/api/check') return pretty(await diagnose(env, allowed));
-      if (path === '/api/ping') return pretty(await ping(req));
+      if (path === '/api/ping') return pretty(await ping(req, env));
       return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
     }
 
@@ -190,9 +190,31 @@ async function diagnose(env, allowed) {
 }
 
 // temporary: which outside hosts this worker can reach, and from where
-async function ping(req) {
-  const hosts = ['https://api.telegram.org/', 'https://core.telegram.org/', 'https://example.com/', 'https://www.google.com/generate_204'];
+async function ping(req, env) {
+  const T = 'https://api.telegram.org/bot';
+  const tests = [
+    ['root GET', 'https://api.telegram.org/', {}],
+    ['fake token GET getMe', T + '123:fake/getMe', {}],
+    ['fake token POST getMe', T + '123:fake/getMe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }],
+    ['real token GET getMe', T + env.BOT_TOKEN + '/getMe', {}],
+    ['real token POST getMe', T + env.BOT_TOKEN + '/getMe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }],
+  ];
   const out = { colo: req.cf && req.cf.colo, country: req.cf && req.cf.country };
+  await Promise.all(tests.map(async ([name, h, o]) => {
+    const t0 = Date.now();
+    try {
+      const r = await fetch(h, { ...o, redirect: 'manual', signal: AbortSignal.timeout(9000) });
+      const body = (await r.text()).replace(/\s+/g, ' ').slice(0, 60).replace(/\d{6,}:[\w-]{20,}/g, '<token>');
+      out[name] = r.status + ' in ' + (Date.now() - t0) + 'ms ' + body;
+    } catch (e) {
+      out[name] = 'failed after ' + (Date.now() - t0) + 'ms: ' + (e && e.message);
+    }
+  }));
+  return out;
+}
+async function pingOld(req) {
+  const hosts = [];
+  const out = {};
   await Promise.all(hosts.map(async (h) => {
     const t0 = Date.now();
     try {
