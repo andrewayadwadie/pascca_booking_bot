@@ -8,5 +8,7 @@
   // keep BOT_TOKEN and CHAT_ID that are set in the Cloudflare dashboard when GitHub deploys
   "keep_vars": true,
   "workers_dev": true,
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // run the booking code next to Telegram's servers, so sending a booking never depends on the visitor's nearest Cloudflare location
+  "placement": { "mode": "targeted", "hostname": "api.telegram.org" }
 }
