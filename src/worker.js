@@ -109,7 +109,12 @@ async function tg(env, method, body) {
   } catch (e) {
     return { ok: false, description: 'could not reach Telegram: ' + (e && e.message) };
   }
-  return res.json().catch(() => ({ ok: false, error_code: res.status, description: 'bad answer from Telegram' }));
+  const raw = await res.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { ok: false, error_code: res.status, description: `bad answer from Telegram (HTTP ${res.status}): ${raw.replace(/\s+/g, ' ').slice(0, 160)}` };
+  }
 }
 
 async function send(env, text) {
