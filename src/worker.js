@@ -46,6 +46,7 @@ export default {
     if (req.method === 'GET' || req.method === 'HEAD') {
       if (path === '/api/setup') return pretty(await setup(env));
       if (path === '/api/check') return pretty(await diagnose(env, allowed));
+      if (path === '/api/ping') return pretty(await ping(req));
       return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
     }
 
@@ -185,6 +186,22 @@ async function diagnose(env, allowed) {
     }
   }
   out.ok = typeof out.bot === 'string' && out.chat === 'found';
+  return out;
+}
+
+// temporary: which outside hosts this worker can reach, and from where
+async function ping(req) {
+  const hosts = ['https://api.telegram.org/', 'https://core.telegram.org/', 'https://example.com/', 'https://www.google.com/generate_204'];
+  const out = { colo: req.cf && req.cf.colo, country: req.cf && req.cf.country };
+  await Promise.all(hosts.map(async (h) => {
+    const t0 = Date.now();
+    try {
+      const r = await fetch(h, { redirect: 'manual', signal: AbortSignal.timeout(8000) });
+      out[h] = r.status + ' in ' + (Date.now() - t0) + 'ms' + (r.headers.get('cf-ray') ? ' ray ' + r.headers.get('cf-ray') : '');
+    } catch (e) {
+      out[h] = 'failed after ' + (Date.now() - t0) + 'ms: ' + (e && e.message);
+    }
+  }));
   return out;
 }
 
