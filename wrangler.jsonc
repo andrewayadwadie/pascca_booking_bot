@@ -1,10 +1,12 @@
 {
   // must match the Worker's name in Cloudflare
   "name": "pascca-booking-bot",
-  // the worker file in the repo (change it if you renamed the file)
-  "main": "telegram-booking-worker.js",
+  "main": "src/worker.js",
   "compatibility_date": "2025-11-01",
-  // keep BOT_TOKEN / CHAT_ID set in the dashboard when GitHub deploys again
+  // the website: every file in public/ is served as is; anything else reaches src/worker.js
+  "assets": { "directory": "./public" },
+  // keep BOT_TOKEN and CHAT_ID that are set in the Cloudflare dashboard when GitHub deploys
   "keep_vars": true,
-  "workers_dev": true
+  "workers_dev": true,
+  "observability": { "enabled": true }
 }
