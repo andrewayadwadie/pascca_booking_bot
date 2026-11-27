@@ -488,6 +488,12 @@ body{font-size:16px;line-height:23px}
 .book[data-mode="stack"]{width:auto;height:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:1300px;perspective:none}
 .book[data-mode="stack"] .pg{position:relative;aspect-ratio:68025/99225;content-visibility:auto;contain-intrinsic-size:auto 600px}
 @media (max-width:900px){.book[data-mode="stack"]{grid-template-columns:minmax(0,1fr)}}
+/* phones and tablets: pages one under another, each fits the screen and rises in */
+.book[data-mode="stack"]{--sw:max(300px,calc((100svh - var(--head) - 110px) / 1.4587));width:100%;gap:clamp(18px,3vw,30px);justify-content:center;grid-template-columns:repeat(2,minmax(0,var(--sw)));will-change:auto}
+@media (max-width:900px){.book[data-mode="stack"]{grid-template-columns:minmax(0,var(--sw))}}
+.book[data-mode="stack"] .pg{box-shadow:0 26px 40px -30px rgba(13,13,13,.55);transform-origin:50% 100%}
+.bookw.is-stack .secw{position:sticky;top:calc(var(--head) + env(safe-area-inset-top,0px));z-index:30}
+.bookw.is-stack .stage{padding-top:clamp(18px,3vw,30px);padding-bottom:clamp(18px,3vw,30px)}
 .bnav{display:flex;align-items:center;justify-content:center;gap:clamp(12px,2vw,22px);padding:12px max(var(--g),env(safe-area-inset-right,0px)) 14px max(var(--g),env(safe-area-inset-left,0px))}
 .bnav button{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--ink);border-radius:var(--r);transition:background .5s var(--soft),color .5s var(--soft),opacity .5s}
 .bnav button:hover:not(:disabled){background:var(--ink);color:var(--paper)}
@@ -1128,7 +1134,9 @@ function mount(){
     onUpdate:function(s){setP(s.progress*flips)}
   });
 }
-if(BOOK){
+/* phones and tablets read the pages one under another; desktop turns the book */
+var STACK=!BOOK||matchMedia('(pointer:coarse)').matches||innerWidth<900;
+if(BOOK&&!STACK){
   build();mount();
   /* once the page has loaded, the rest of the book loads quietly in the background */
   if(!lite())addEventListener('load',function(){var i=0;(function next(){if(i>=leaves.length)return;loadImgs(leaves[i++].el);setTimeout(next,300)})()});
@@ -1147,10 +1155,32 @@ if(BOOK){
     if(e.key==='ArrowLeft'){e.preventDefault();goPos(shown-1)}
   });
 }else{
-  /* without motion: the pages sit one after another */
-  book.dataset.mode='stack';srcPages.forEach(function(p){book.appendChild(p);$$('img[data-src]',p).forEach(function(m){m.loading='lazy';m.src=m.dataset.src;m.removeAttribute('data-src')})});
-  $('.bnav',bookw).hidden=true;
-  chips.forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();var t=$('#pg-'+a.dataset.pg);if(t)t.scrollIntoView({block:'start'})},true)});
+  /* the pages sit one after another and rise into view as you scroll */
+  book.dataset.mode='stack';bookw.classList.add('is-stack');bookw.setAttribute('aria-label','Menu pages');
+  srcPages.forEach(function(p){book.appendChild(p)});
+  /* only pages near the screen keep their images, so a phone never holds the whole menu in memory */
+  var unload=function(el){$$('img[src]',el).forEach(function(m){m.dataset.src=m.getAttribute('src');m.removeAttribute('src')})};
+  if(window.IntersectionObserver){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)loadImgs(e.target);else unload(e.target)})},{rootMargin:'100% 0px'});
+    srcPages.forEach(function(p){io.observe(p)});
+  }else srcPages.forEach(loadImgs);
+  $('.bnav',bookw).hidden=true;markSec(0);
+  var offTop=function(){return headH()+$('.secw',bookw).offsetHeight+12};
+  chips.forEach(function(a){a.addEventListener('click',function(e){
+    e.preventDefault();e.stopImmediatePropagation();
+    var t=$('#pg-'+a.dataset.pg);if(!t)return;
+    /* where the page rests, ignoring the rise-in animation's offset */
+    var y=0;for(var el=t;el;el=el.offsetParent)y+=el.offsetTop;y-=offTop();
+    if(lenis)lenis.scrollTo(y);
+    else window.scrollTo({top:y,behavior:reduce?'auto':'smooth'});
+  },true)});
+  if(G&&ST)srcPages.forEach(function(p,i){
+    G.fromTo(p,{y:110,opacity:0,scale:.93},{y:0,opacity:1,scale:1,ease:'none',force3D:false,
+      scrollTrigger:{trigger:p,start:'top bottom',end:'top 62%',scrub:.6}});
+    ST.create({trigger:p,start:'top 50%',end:'bottom 50%',onToggle:function(s){
+      if(!s.isActive)return;var n=i+1,cur=0;SECS.forEach(function(x,k){if(x[0]<=n)cur=k});markSec(cur);
+    }});
+  });
 }
 
 /* ---------- order ---------- */
