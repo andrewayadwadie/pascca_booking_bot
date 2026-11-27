@@ -225,6 +225,8 @@ body{position:relative}
 .pat{position:absolute;inset:0;z-index:-1;overflow:clip;pointer-events:none}
 .pat::before{content:"";position:absolute;inset:0;background-image:var(--grain);background-size:320px 320px;opacity:.32}
 .spr{position:absolute;aspect-ratio:44/63;background:var(--sprig) center/contain no-repeat;opacity:.085;will-change:transform}
+/* phones and tablets: the page-tall pattern and the split text stay out of GPU layers (memory) */
+@media (pointer:coarse),(max-width:899px){html .spr,html .ci,html .fw,html .wi,html .strip__r{will-change:auto}}
 .hero,.carta,.pre{position:relative}
 .tagline{font:400 clamp(22px,2.4vw,34px)/1.1 var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--brick)}
 
@@ -984,7 +986,9 @@ function drift(){
   });
 }
 sprigs.forEach(function(s){s.el.style.transform='rotate('+s.r+'deg)'});
-if(G){G.ticker.add(drift);addEventListener('resize',function(){measure();lastY=-1})}
+/* phones and tablets: sprigs stay still, so the page-tall pattern is painted once, not every frame */
+var LITE=matchMedia('(pointer:coarse)').matches||innerWidth<900;
+if(G&&!LITE){G.ticker.add(drift);addEventListener('resize',function(){measure();lastY=-1})}
 
 /* opening */
 if(G){
@@ -1698,7 +1702,7 @@ document.addEventListener('click',function(e){
   if(dirty&&!confirmed){e.preventDefault();showLeave(a.href)}
 },true);
 /* the pointer heading for the tab bar or the address bar */
-document.addEventListener('mouseout',function(e){
+if(matchMedia('(hover:hover) and (pointer:fine)').matches)document.addEventListener('mouseout',function(e){
   if(e.relatedTarget||e.clientY>8)return;
   if(Date.now()-lvAt<30000)return;
   showLeave(null);
